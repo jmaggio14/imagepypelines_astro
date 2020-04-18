@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
+import os
 
 # REPLACE THESE VARIABLES
 # this should be the name of your source directory like "imagepypelines_template"
