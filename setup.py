@@ -3,10 +3,10 @@ from setuptools import setup, find_packages
 
 # REPLACE THESE VARIABLES
 # this should be the name of your source directory like "imagepypelines_template"
-DIRECTORY_NAME = "imagepypelines_template"
+DIRECTORY_NAME = "imagepypelines_astro"
 # this should be the name your namespace - so your plugin will be available as
 # imagepypelines.<namespace>
-NAMESPACE = "template"
+NAMESPACE = "astro"
 
 
 # ==============================================================================

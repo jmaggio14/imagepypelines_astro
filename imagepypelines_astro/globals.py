@@ -3,17 +3,17 @@
 # ==============================================================================
 
 # replace this with your version number (optional)
-__version__ = "0.0.0"
+__version__ = "0.0.1-alpha"
 
 # your name(s) and email(s)
-__author__ = ""
-__email__ = ""
+__author__ = "Jeff Maggio"
+__email__ = "jmaggio14@gmail.com"
 
 # one line description of your plugin
-__description__ = ""
+__description__ = "Astronomy toolkits for ImagePypelines"
 
 # the type of license you use e.g. "MIT"
-__license__ = ""
+__license__ = "MIT"
 
 
 # update this if you add more variables to this file
