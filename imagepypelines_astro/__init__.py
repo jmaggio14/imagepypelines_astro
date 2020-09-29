@@ -8,6 +8,7 @@
 
 
 # replace these lines with your own imports
+from .hdu_loading import *
 
-# import the global variables (unused as of 04/06/20)
+
 from .globals import *
