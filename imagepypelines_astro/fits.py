@@ -47,7 +47,7 @@ class HduLoader(AstroBlock):
         """
         hdul = fits.open(fname, memmap=self.use_memmap)
         hdu = hdul[self.hdu_index]
-        return hdu.header,
+        return hdu.header,hdu.data
 
 
 ################################################################################
