@@ -1,2 +1,2 @@
-recursive-include imagepypelines_template/data *
+recursive-include imagepypelines_astro/data *
 include LICENSE

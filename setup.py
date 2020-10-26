@@ -24,6 +24,11 @@ requirements = ''
 with open( os.path.join(current_dir, 'requirements.txt'), 'r' ) as f:
     requirements = f.readlines()
 
+# load in list of dev requirements
+dev_requirements_path = os.path.join(current_dir,'requirements-dev.txt')
+with open(dev_requirements_path,'r') as f:
+    requirements_dev = f.read().splitlines()
+
 # fetches the readme text
 readme_text = ''
 with open( os.path.join(current_dir, 'README.rst'), 'r' ) as f:
@@ -42,4 +47,7 @@ setup(name=DIRECTORY_NAME,
       author=__author__,
       author_email=__email__,
       license=__license__,
+      extras_require = {
+                    'dev' : requirements_dev,
+                    }
       )

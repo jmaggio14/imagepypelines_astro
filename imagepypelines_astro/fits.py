@@ -5,6 +5,14 @@ from astropy.io import fits
 
 DEFAULT_MEMMAP = True
 
+__all__ = [
+            'HduLoader',
+            'LoadPrimaryHDU',
+            'LoadHDU0',
+            'LoadHDU1',
+            'LoadHDU2',
+            ]
+
 # setup base class for all HDU loading
 ################################################################################
 class HduLoader(AstroBlock):

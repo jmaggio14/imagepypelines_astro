@@ -1,2 +1,4 @@
 imagepypelines
 astropy
+numpy
+scipy
