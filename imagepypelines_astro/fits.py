@@ -3,7 +3,7 @@ from .AstroBlock import AstroBlock
 # astropy
 from astropy.io import fits
 
-DEFAULT_MEMMAP = True
+DEFAULT_MEMMAP = False
 
 __all__ = [
             'HduLoader',
@@ -42,12 +42,14 @@ class HduLoader(AstroBlock):
                 that you want to load from the fits file. Usually this is simply
                 "primary" or 0
             use_memmap(bool): Whether or not to use memory mapping (memmap).
-                Leaving as True will reduce memory footprint, but this will
+                Changing to True will reduce memory footprint, but this will
                 sometimes sacrifice speed and can lock access to the file.
-                False is reccomended if you have adequate memory available.
+                Keeping as False is reccomended if you have adequate memory
+                available.
         """
         self.hdu_index = hdu_index
         self.use_memmap = use_memmap
+        super().__init__()
 
     # __________________________________________________________________________
     def process(self, fname):
@@ -76,9 +78,10 @@ class LoadPrimaryHDU(HduLoader):
 
         Args:
             use_memmap(bool): Whether or not to use memory mapping (memmap).
-                Leaving as True will reduce memory footprint, but this will
+                Changing to True will reduce memory footprint, but this will
                 sometimes sacrifice speed and can lock access to the file.
-                False is reccomended if you have adequate memory available.
+                Keeping as False is reccomended if you have adequate memory
+                available.
         """
         super().__init__("PRIMARY", use_memmap)
 
@@ -91,9 +94,10 @@ class LoadHDU0(HduLoader):
 
             Args:
                 use_memmap(bool): Whether or not to use memory mapping (memmap).
-                    Leaving as True will reduce memory footprint, but this will
+                    Changing to True will reduce memory footprint, but this will
                     sometimes sacrifice speed and can lock access to the file.
-                    False is reccomended if you have adequate memory available.
+                    Keeping as False is reccomended if you have adequate memory
+                    available.
             """
             super().__init__(0, use_memmap)
 
@@ -106,9 +110,10 @@ class LoadHDU1(HduLoader):
 
             Args:
                 use_memmap(bool): Whether or not to use memory mapping (memmap).
-                    Leaving as True will reduce memory footprint, but this will
+                    Changing to True will reduce memory footprint, but this will
                     sometimes sacrifice speed and can lock access to the file.
-                    False is reccomended if you have adequate memory available.
+                    Keeping as False is reccomended if you have adequate memory
+                    available.
             """
             super().__init__(1, use_memmap)
 
@@ -121,8 +126,9 @@ class LoadHDU2(HduLoader):
 
             Args:
                 use_memmap(bool): Whether or not to use memory mapping (memmap).
-                    Leaving as True will reduce memory footprint, but this will
+                    Changing to True will reduce memory footprint, but this will
                     sometimes sacrifice speed and can lock access to the file.
-                    False is reccomended if you have adequate memory available.
+                    Keeping as False is reccomended if you have adequate memory
+                    available.
             """
             super().__init__(2, use_memmap)
