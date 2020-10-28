@@ -36,7 +36,7 @@ with open( os.path.join(current_dir, 'README.rst'), 'r' ) as f:
 
 setup(name=DIRECTORY_NAME,
       packages=find_packages(),
-      entry_points={'imagepypelines.plugins': '{} = {}'.format(NAMESPACE, DIRECTORY_NAME)},
+      entry_points={'imagepypelines.plugins': f'{NAMESPACE} = {DIRECTORY_NAME}'},
       include_package_data=True,
       install_requires=requirements,
       long_description=readme_text,
@@ -49,5 +49,5 @@ setup(name=DIRECTORY_NAME,
       license=__license__,
       extras_require = {
                     'dev' : requirements_dev,
-                    }
+                    },
       )
