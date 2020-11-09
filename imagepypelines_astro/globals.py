@@ -10,7 +10,7 @@ __author__ = "Jeff Maggio"
 __email__ = "jmaggio14@gmail.com"
 
 # one line description of your plugin
-__description__ = "Astronomy toolkits for ImagePypelines"
+__description__ = "Astronomy Toolkit for ImagePypelines"
 
 # the type of license you use e.g. "MIT"
 __license__ = "MIT"

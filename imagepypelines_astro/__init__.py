@@ -12,5 +12,7 @@ from .dataload import moon
 
 from .fits import *
 
+from .stars import *
+
 # import the global variables (unused as of 04/06/20)
 from .globals import *

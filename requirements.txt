@@ -2,3 +2,4 @@ imagepypelines
 astropy
 numpy
 scipy
+Pillow
