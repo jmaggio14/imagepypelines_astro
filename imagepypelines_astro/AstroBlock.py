@@ -7,8 +7,9 @@ class AstroBlock(ip.Block):
     properties
 
     """
-    def __init__(self):
+    def __init__(self,**kwargs):
         """instantiates the AstroBlock"""
         # NOTE: add default input types
-        super().__init__(batch_type="each")
+        kwargs.update({'batch_type':'each'})
+        super().__init__(**kwargs)
         self.tags.add("astronomy")

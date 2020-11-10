@@ -3,36 +3,35 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import cv2
+from photutils import DAOStarFinder
 ip.require('image', 'astro')
 
+from photutils import datasets
+hdu = datasets.load_star_image()
+data = hdu.data[0:401, 0:401]
 
 moon_fname = ip.astro.moon()
 
+# DAOStarFinder(fwhm=5.0, threshold=20)
+
 tasks = {
-        'filenames':ip.Input(0),
-        ('headers','images'): (ip.astro.LoadPrimaryHDU(),'filenames'),
+        # 'filenames':ip.Input(0),
+        # ('headers','images'): (ip.astro.LoadPrimaryHDU(),'filenames'),
+        'images':ip.Input(0),
+        # shrink the images for viewing and make them normalized to 8bit
         'small' : (ip.image.Resize(scale_w=1/8,scale_h=1/8),'images'),
         'normalized_0_255' : (ip.image.NormDtype(np.uint8),'small'),
-        'star_locs' : (ip.astro)
+        #
+        'stars' : (ip.astro.DAOStarFinder(),'images'),
+        'null'  : (ip.astro.ViewSourceOutlines(radius=5),'images','stars'),
         }
 fits_loader = ip.Pipeline(tasks)
 
 
 # headers,data = fits_loader.process_and_grab([moon_fname],
 #                                                 fetch=['headers',' small'])
-processed = fits_loader.process([moon_fname])
-data = processed['normalized_0_255']
-headers = processed['headers']
+processed = fits_loader.process([data])
 
-assert isinstance(data[0], np.ndarray)
-assert len(data) == len(headers) == 1
 
-moon = processed['normalized_0_255'][0]
 
-# display the image
-fig = plt.figure()
-ax = fig.add_subplot(111)
-plt.imshow(moon, cmap='gray')
-plt.ion()
-plt.show()
-plt.pause(0.1)
+import pdb; pdb.set_trace()

@@ -1,5 +1,6 @@
 imagepypelines
 astropy
+photutils
 numpy
 scipy
-Pillow
+matplotlib
