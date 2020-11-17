@@ -6,6 +6,7 @@ MOON_FILENAME = pkg_resources.resource_filename(__name__,
 """full filename for a fits image of the moon"""
 del pkg_resources
 
+from .imports import import_opencv
 
 # replace these lines with your own imports
 from .dataload import moon
@@ -13,6 +14,7 @@ from .dataload import moon
 from .fits import *
 
 from .stars import *
+from .noise import *
 
 # import the global variables (unused as of 04/06/20)
 from .globals import *
