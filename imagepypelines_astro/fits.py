@@ -11,6 +11,7 @@ __all__ = [
             'LoadHDU0',
             'LoadHDU1',
             'LoadHDU2',
+            'HeaderFetch',
             ]
 
 # setup base class for all HDU loading
@@ -132,3 +133,16 @@ class LoadHDU2(HduLoader):
                     available.
             """
             super().__init__(2, use_memmap)
+
+
+################################################################################
+class HeaderFetch(AstroBlock):
+    """TODO"""
+    def __init__(self, key):
+         self.key = key
+         super().__init__()
+         # TODO
+         # self.enforce('header', <HEADERTYPE>)
+
+    def process(self, header):
+         return header[self.key]

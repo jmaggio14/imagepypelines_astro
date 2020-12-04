@@ -13,6 +13,7 @@ __all__ = [
             'Quick1DPlot',
             ]
 
+################################################################################
 class HorizontalMedian(AstroBlock):
     def __init__(self):
         super().__init__()
@@ -20,8 +21,7 @@ class HorizontalMedian(AstroBlock):
 
     def process(self,image):
         return np.median(image, axis=0)
-
-
+################################################################################
 class VerticalMedian(AstroBlock):
     def __init__(self):
         super().__init__()
@@ -29,8 +29,7 @@ class VerticalMedian(AstroBlock):
 
     def process(self,image):
         return np.median(image, axis=1)
-
-
+################################################################################
 class Quick1DPlot(AstroBlock):
     def __init__(self):
         super().__init__()

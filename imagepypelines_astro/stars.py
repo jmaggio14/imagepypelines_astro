@@ -26,6 +26,9 @@ __all__ = [
             'DrawSourceOutlines',
             # 'DAOPhotometry',
             'AperturesAndAnnuli',
+            'AperturePhotometry',
+            'InstrumentalMag',
+            'InstrumentalMagWithExposure',
             'Stack',
             ]
 
@@ -65,13 +68,13 @@ class StarFinder(AstroBlock):
         lower = image.shape[0] - width
         left = width
         right = image.shape[1] - width
-        mask = np.ones(image.shape,dtype=bool)
+        mask = np.ones(image.shape, dtype=bool)
         mask[upper:lower,left:right] = 0
         return mask
 
     def process(self, image):
         if isinstance(self.mask,int):
-            mask = self.__make_border_mask()
+            mask = self.__make_border_mask(image, self.mask)
         elif isinstance(self.mask, np.ndarray):
             mask = self.mask
         else:
@@ -79,8 +82,7 @@ class StarFinder(AstroBlock):
 
         sources = self.finder(image, mask=mask)
         return sources
-
-
+################################################################################
 class DAOStarFinder(StarFinder):
     """
 
@@ -94,10 +96,8 @@ class DAOStarFinder(StarFinder):
 
         .. _DAOStarFinder: https://photutils.readthedocs.io/en/stable/api/photutils.detection.DAOStarFinder.html#photutils.detection.DAOStarFinder
         """
-        super().__init__(photutilsDAOStarFinder, mask=mask,**daofind_kwargs)
-
-
-
+        super().__init__(photutilsDAOStarFinder, mask=mask, **daofind_kwargs)
+################################################################################
 class IRAFStarFinder(StarFinder):
     """
 
@@ -111,11 +111,7 @@ class IRAFStarFinder(StarFinder):
 
         .. _IRAFStarFinder:https://photutils.readthedocs.io/en/stable/api/photutils.detection.IRAFStarFinder.html#photutils.detection.IRAFStarFinder
         """
-        super().__init__(photutilsIRAFStarFinder, mask=mask,**iraffind_kwargs)
-
-
-
-
+        super().__init__(photutilsIRAFStarFinder, mask=mask, **iraffind_kwargs)
 ################################################################################
 class AperturesAndAnnuli(AstroBlock):
     def __init__(self, radius, annulus_inner, annulus_outer):
@@ -134,11 +130,11 @@ class AperturesAndAnnuli(AstroBlock):
 
 ################################################################################
 class AperturePhotometry(AstroBlock):
-    def __init__(self, read_noise, median_sigma_clip=3.0):
+    def __init__(self, median_sigma_clip=3.0):
         self.median_sigma_clip = median_sigma_clip
         super().__init__()
 
-    def process(image, apertures, annuli):
+    def process(image,apertures, annuli):
         # fetch the exposure time, we'll need it later
         exp_time = header[self.exp_time_key]
 
@@ -147,24 +143,49 @@ class AperturePhotometry(AstroBlock):
 
         # fetch the annulus sigma-clipped median for local background subtraction
         annuli_masks  = annuli.to_mask(method='center')
-        backgrounds = [sigma_clipped_stats(m.multiply(image),self.sigma_clip)[1] for m in annuli_masks]
+        # fetch the background arrays
+        background_areas = [m.multiply(image) of m in annuli_masks]
+        # calculate the median of the backgrounds for flux subtraction
+        background_medians = [sigma_clipped_stats(ba,self.sigma_clip)[1] for ba in background_areas]
 
-        # calculate instrumentation magnitude
-        fluxes = np.asarray(integrated) - np.asarray(backgrounds)
-        return fluxes
+        # sum up background subtracted flux in counts
+        counts = np.asarray(integrated) - np.asarray(background_medians)
 
+        # WARNING: this needs to be vetted
+        # calculate error as quadature sum of read noise, shot noise, and background noise
+        # calculate shot noise as the sqrt of the counts
+        shot_noise = np.sqrt(counts)
+        # calculate sky noise as the variance of the background
+        background_noise = np.asarray([np.var(b) for b in backgrounds])
+        # WARNING: this assumes background noise accounts for sky, read, and dark noise
+        err = shot_noise + background_noise
+
+        return counts, err
 
 ################################################################################
-class InstrumentalMagnitude(AstroBlock):
-    def __init__(self, exp_time_key='EXP', offset=0.0):
-        self.exp_time_key = exp_time_key
+class InstrumentalMag(AstroBlock):
+    def __init__(self, offset=0.0):
         self.offset = offset
         super().__init__()
+        self.enforce('fluxes', np.ndarray)
 
-    def process(header, fluxes):
-        exp_time = header[self.exp_time_key]
-        mag = offset - (2.5 * np.log10( true_counts / exp_time ))
+    def process(self, fluxes):
+
+        mag = offset - (2.5 * np.log10( fluxes / exp_time ))
         return mag
+################################################################################
+class InstrumentalMagWithExposure(AstroBlock):
+    def __init__(self, offset=0.0, ):
+        self.offset = offset
+        super().__init__()
+        self.enforce('fluxes', np.ndarray)
+        self.enforce('exp_time', float)
+
+
+    def process(self, fluxes, exp_time):
+        mag = offset - (2.5 * np.log10( fluxes / exp_time ))
+        return mag
+
 
 
 
@@ -231,7 +252,6 @@ class InstrumentalMagnitude(AstroBlock):
         flux_unc = phot['flux_unc']
         # residual = self.photometer.get_residual_image()
         return phot
-
 ################################################################################
 class DrawSourceOutlines(AstroBlock):
     __COLORS = {
@@ -280,7 +300,6 @@ class DrawSourceOutlines(AstroBlock):
 
 
         return image
-
 ################################################################################
 class NSample(Block):
     def __init__(self, n_samples=1):
@@ -290,8 +309,7 @@ class NSample(Block):
     def process(self, images):
         samples = random.sample(images, self.n_samples)
         return samples
-
-
+################################################################################
 class FractionSample(Block):
     def __init__(self, fraction=0.5):
         super().__init__(batch_type='all')
