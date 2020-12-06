@@ -1,20 +1,18 @@
-from .AstroBlock import AstroBlock, AstroBlockAll
-from .imports import import_opencv
+from .AstroBlock import AstroBlockAll
 
 import numpy as np
-import scipy
-import imagepypelines as ip
 
 __all__ = [
-            'w'
-            'w4'
-]
+            'EnsemblePhotometry'
+            ]
 # TEMPORARY
-class EnsembleSolve(AstroBlockAll):
-    def __init__(self, force_star_mag=True, zero_tolerance=1e-3)
+class EnsemblePhotometry(AstroBlockAll):
+    def __init__(self, force_star_mag=False, n_stars=50):
         # TODO: document
         self.force_star_mag = force_star_mag
-        super().__init()
+        self.n_stars = n_stars
+
+        super().__init__()
 
     def process(self, all_mags, all_mag_errs):
         """calculate correction magnitudes"""
@@ -22,20 +20,38 @@ class EnsembleSolve(AstroBlockAll):
         all_mags = np.asarray(all_mags)
         all_mag_errs = np.asarray(all_mag_errs)
 
+
         # NOTE: variables in this function correspond to the variables
         # used by Ken Honeycutt in his paper "CCD Ensemble Photometry
         # on an Inhomogenus Set of Exposures"
         # (except that I use zero-based indexing)
-        ee = all_mags.shape[0]
-        ss = all_mags.shape[1]
-        m = all_mags
 
-         # ------------------ FILL MATRIX ------------------
+        # sort the stars brightest to smallest, only choose the brightest n
+        # stars for the solution
+        n_stars = min(ss,self.n_stars)
+        avg_mags = np.mean(all_mags,axis=0)
+        brightest_star_indices = np.argsort(avg_mags)[-n_stars:]
+
+
+        m = all_mags[:,brightest_star_indices]
+        ee = m.shape[0] # number of exposures
+        ss = m.shape[1] # number of stars
+
+
+
+        # ------------------ FILL MATRIX ------------------
 
         matrix = np.zeros( (ss+ee,ss+ee) )
 
-        w = w1(m, all_mag_errs) * w2(m, all_mag_errs) \
-                    * w3(m, all_mag_errs) * w4(m, all_mag_errs)
+
+        w1 = np.ones(all_mags.shape,dtype=bool)
+        w2 = np.zeros(all_mags.shape,dtype=bool)
+        w2[:,brightest_star_indices] = 1
+        w3 = np.ones(all_mags.shape,dtype=bool)
+        w4 = self.w4(m, all_mag_errs)
+
+        w = w1[brightest_star_indices] * w2[brightest_star_indices] \
+            * w3[brightest_star_indices] * w4[brightest_star_indices]
 
         # sum image weights for every star
         image_weights = np.sum(w,axis=1)
@@ -43,8 +59,8 @@ class EnsembleSolve(AstroBlockAll):
         star_weights = np.sum(w,axis=0)
         # fetch the indices for matrix diagonal. Both for image and star weights
         diag_indices = np.diag_indices(ss+ee)
-        diag_image_weight_indices = diag_indices[:ee,:ee]
-        diag_star_weight_indices = diag_indices[ee:,ee:]
+        diag_image_weight_indices = (diag_indices[0][:ee],diag_indices[1][:ee])
+        diag_star_weight_indices = (diag_indices[0][ee:],diag_indices[1][ee:])
 
         # populate matrix diagonals with weight sums
         matrix[diag_image_weight_indices] = image_weights
@@ -55,83 +71,101 @@ class EnsembleSolve(AstroBlockAll):
         # populate top right of matrix with weights, this should be an area of [n_images,n_stars]
         matrix[:ee,ee:] = w
 
-        # # force the first star to have an instrumental mag of zero
-        # if self.force_star_mag:
-        #     matrix[ee,:ee]
+        # force the first star to have an instrumental mag of zero
+        # this can help the solution
+        if self.force_star_mag:
+            matrix[:,ee] = 0.0
+            matrix[ee,:] = 0.0
 
 
         # DEBUG
-        # make sure this this matrix is orthagonal as a check
-        if not np.all(matrix == matrix.T):
-            msg = "error in matrix calculation - resultant is non orthagonal"
-            self.logger.error(msg)
-            raise ValueError(msg)
-
+        # # make sure this this matrix is orthagonal as a check
+        # if not np.all(matrix == matrix.T):
+        #     msg = "error in matrix calculation - resultant is non orthagonal"
+        #     self.logger.error(msg)
+        #     raise ValueError(msg)
 
 
          # ------------------ FILL bVec ------------------
-         bvec = np.zeros( (ss+ee,1) )
+        bvec = np.zeros( (ss+ee,1) )
 
-         # calculate the magnitude sum along image and star dimensions
-         image_m_sum = np.sum(m,axis=0)
-         star_m_sum = np.sum(m,axis=1)
+        # calculate the magnitude sum along image and star dimensions
+        image_m_sum = np.sum(m,axis=0)
+        star_m_sum = np.sum(m,axis=1)
 
-         # TODO: this could be sped up if sums are performed first
-         # populate the first ee rows with image_weight * stellar_mag for that image
-         weighted_mags = m * w
-
-         bvec[:ee] = np.sum(weighted_mags, axis=1)
-         bvec[ee:] = np.sum(weighted_mags, axis=0)
-
-
-         # ------------------ Solve solution using SVD ------------------
-         U,S,Vh = np.linalg.svd(matrix)
-
-         # floor values that should be zero, but aren't due to 
+        # TODO: this could be sped up if sums are performed first
+        # populate the first ee rows with image_weight * stellar_mag for that image
+        weighted_mags = m * w
+        bvec[:ee,0] = np.sum(weighted_mags, axis=1)
+        bvec[ee:,0] = np.sum(weighted_mags, axis=0)
 
 
+        # ------------------ Solve solution using SVD ------------------
+        # U,S,Vh = np.linalg.svd(matrix)
+        #
+        # # floor values that should be zero, but aren't due to floating point errors
+        # S[ S < self.zero_tolerance] = 0
+
+        # compute the least squares solution for the corrected magnitude vectors
+        # in other words, solve for x in the matrix*x = bvec
+        self.logger.info("beginning least squares ensemble correction...")
+        x,residuals,rank,_ = np.linalg.lstsq(matrix,bvec,rcond=None)
+
+        # x is a vector.
+        # first ee rows are image correction factor em(0), em(1), ...
+        # last ss rows are stellar mean magnitudes m0(0), m0(1), ...
+
+        # First star's magnitude is unconstrained, so we have to set it to 0.0
+        if self.force_star_mag:
+            x[ee] = 0.0
+
+        # image correction factors
+        em = x[:ee]
+        # mean magnitudes
+        m0 = x[ee:]
+
+        # ------------ Calculate corrected magnitude and error ------------
+
+        # stellar magnitudes - corrected with correction factors
+        # em is a vector here, and m is 2D. numpy just does broadcasting magic
+        M = all_mags + em
+
+        # calculate the stellar mean magnitude from as a weighted average using w4
+        mean_mags = np.sum(M * w4, axis=0) /  np.sum(w4, axis=0)
+        # however, for the brightest stars we just replace them from the solution
+        mean_mags[brightest_star_indices] = m0
+
+
+        # calculate error of magnitude correction factors
+        # again, python broadcasting magic...
+        weighted_sq_residual = (all_mags - em.reshape((ee,1)) - mean_mags.reshape((1,None)))**2 * w4
+
+
+        # calculate error of image correction
+        numerator = ss * np.sum(weighted_sq_residual, axis=1)
+        denominator = (ss - 1) * image_weights
+
+        sigma2_em = numerator / denominator
+
+        # calculate error of stellar mean magnitude
+        numerator = ee * np.sum(weighted_sq_residual, axis=0)
+        denominator = (ee - 1) * np.sum(w4,axis=0)
+
+        sigma2_m0 = numerator / denominator
 
 
 
 
 
+        # rename these to be more explicit
+        corrected_magnitudes = M # [n_images, n_stars]
+        image_correction_factors = em # [n_images,]
+        image_correction_error = sigma2_em # [n_images ]
+        mean_stellar_magnitude = mean_mags # [n_stars,]
+        mean_stellar_mag_error = sigma2_m0 # [n_stars,]
 
-
-
-
-
-
-        # renaming variable to conform with paper
-        m = all_mags
-        # average stellar magnitude over all exposures
-        m0 = np.mean(m,axis=0)
-        # calculate weights according to paper
-        # 2020/4/12 - only w4 is calculated
-
-        beta = 0
-        for e in ee:
-            for s in ss:
-                (m[e,s] - em - m0[s])**2 * w[e,s]
-
-
-        # calculate the magnitude weights according to Ken Honeycutt's
-        # paper.
-        # for now, only w4 is calculated
-
-
-        # average magnitude of all stars
-        m0 = np.mean(all_mags, axis=0)
-
-        for e in all_mags.shape[0]:
-            for s in all
-
-
-
-
-        # for e in range(n_exposures):
-
-
-
+        return corrected_magnitudes, image_correction_factors, \
+                image_correction_error, mean_stellar_magnitude, mean_stellar_mag_error
 
 
     def w1(self, mags, mag_errs):

@@ -134,19 +134,17 @@ class AperturePhotometry(AstroBlock):
         self.median_sigma_clip = median_sigma_clip
         super().__init__()
 
-    def process(image,apertures, annuli):
-        # fetch the exposure time, we'll need it later
-        exp_time = header[self.exp_time_key]
-
+    def process(self, image, apertures, annuli):
         # get the sums within the circular apertures for each source
         integrated = aperture_photometry(image, apertures)['aperture_sum']
 
         # fetch the annulus sigma-clipped median for local background subtraction
         annuli_masks  = annuli.to_mask(method='center')
         # fetch the background arrays
-        background_areas = [m.multiply(image) of m in annuli_masks]
+        background_data = [m.multiply(image)[m.data > 0] for m in annuli_masks]
+
         # calculate the median of the backgrounds for flux subtraction
-        background_medians = [sigma_clipped_stats(ba,self.sigma_clip)[1] for ba in background_areas]
+        background_medians = [sigma_clipped_stats(bd,sigma=self.median_sigma_clip)[1] for bd in background_data]
 
         # sum up background subtracted flux in counts
         counts = np.asarray(integrated) - np.asarray(background_medians)
@@ -156,7 +154,7 @@ class AperturePhotometry(AstroBlock):
         # calculate shot noise as the sqrt of the counts
         shot_noise = np.sqrt(counts)
         # calculate sky noise as the variance of the background
-        background_noise = np.asarray([np.var(b) for b in backgrounds])
+        background_noise = np.asarray([np.var(b) for b in background_data])
         # WARNING: this assumes background noise accounts for sky, read, and dark noise
         err = shot_noise + background_noise
 
@@ -170,12 +168,12 @@ class InstrumentalMag(AstroBlock):
         self.enforce('fluxes', np.ndarray)
 
     def process(self, fluxes):
-
-        mag = offset - (2.5 * np.log10( fluxes / exp_time ))
+        mag = self.offset - (2.5 * np.log10( fluxes ))
         return mag
+
 ################################################################################
 class InstrumentalMagWithExposure(AstroBlock):
-    def __init__(self, offset=0.0, ):
+    def __init__(self, offset=0.0):
         self.offset = offset
         super().__init__()
         self.enforce('fluxes', np.ndarray)
@@ -183,7 +181,7 @@ class InstrumentalMagWithExposure(AstroBlock):
 
 
     def process(self, fluxes, exp_time):
-        mag = offset - (2.5 * np.log10( fluxes / exp_time ))
+        mag = self.offset - (2.5 * np.log10( fluxes / exp_time ))
         return mag
 
 
@@ -244,14 +242,14 @@ class InstrumentalMagWithExposure(AstroBlock):
 #                                                              extra_output_cols=extra_output_cols)
 #
 #         self.enforce('image', np.ndarray, [(None,None)])
-
-    def process(self, image):
-        phot = self.photometer.do_photometry(image)
-        ids = phot['id']
-        fluxes = phot['flux_fit']
-        flux_unc = phot['flux_unc']
-        # residual = self.photometer.get_residual_image()
-        return phot
+    #
+    # def process(self, image):
+    #     phot = self.photometer.do_photometry(image)
+    #     ids = phot['id']
+    #     fluxes = phot['flux_fit']
+    #     flux_unc = phot['flux_unc']
+    #     # residual = self.photometer.get_residual_image()
+    #     return phot
 ################################################################################
 class DrawSourceOutlines(AstroBlock):
     __COLORS = {

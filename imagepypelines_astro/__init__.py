@@ -11,6 +11,8 @@ from .imports import import_opencv
 # replace these lines with your own imports
 from .dataload import moon
 
+from .ensemble_photometry import *
+
 from .fits import *
 
 from .stars import *
