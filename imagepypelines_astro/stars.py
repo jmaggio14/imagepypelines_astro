@@ -130,7 +130,8 @@ class AperturesAndAnnuli(AstroBlock):
 
 ################################################################################
 class AperturePhotometry(AstroBlock):
-    def __init__(self, median_sigma_clip=3.0):
+    def __init__(self, read_noise=200, median_sigma_clip=3.0):
+        self.read_noise = read_noise
         self.median_sigma_clip = median_sigma_clip
         super().__init__()
 
@@ -144,19 +145,21 @@ class AperturePhotometry(AstroBlock):
         background_data = [m.multiply(image)[m.data > 0] for m in annuli_masks]
 
         # calculate the median of the backgrounds for flux subtraction
-        background_medians = [sigma_clipped_stats(bd,sigma=self.median_sigma_clip)[1] for bd in background_data]
+        background_levels = [sigma_clipped_stats(bd,sigma=self.median_sigma_clip)[1] * ap.area for bd,ap in zip(background_data,apertures)]
+        background_stddev = [sigma_clipped_stats(bd,sigma=self.median_sigma_clip)[2] for bd in background_data]
 
         # sum up background subtracted flux in counts
-        counts = np.asarray(integrated) - np.asarray(background_medians)
+        counts = np.asarray(integrated) - np.asarray(background_levels)
 
         # WARNING: this needs to be vetted
         # calculate error as quadature sum of read noise, shot noise, and background noise
         # calculate shot noise as the sqrt of the counts
         shot_noise = np.sqrt(counts)
         # calculate sky noise as the variance of the background
-        background_noise = np.asarray([np.var(b) for b in background_data])
+        background_noise = np.asarray([bsd**2 for bsd in background_stddev])
+        # background_noise = 0
         # WARNING: this assumes background noise accounts for sky, read, and dark noise
-        err = shot_noise + background_noise
+        err = shot_noise + background_noise + self.read_noise
 
         return counts, err
 

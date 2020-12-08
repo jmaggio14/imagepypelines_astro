@@ -7,7 +7,7 @@ __all__ = [
             ]
 # TEMPORARY
 class EnsemblePhotometry(AstroBlockAll):
-    def __init__(self, force_star_mag=False, n_stars=50):
+    def __init__(self, force_star_mag=False, n_stars=100):
         # TODO: document
         self.force_star_mag = force_star_mag
         self.n_stars = n_stars
@@ -28,9 +28,9 @@ class EnsemblePhotometry(AstroBlockAll):
 
         # sort the stars brightest to smallest, only choose the brightest n
         # stars for the solution
-        n_stars = min(ss,self.n_stars)
+        n_stars = min(all_mags.shape[1],self.n_stars)
         avg_mags = np.mean(all_mags,axis=0)
-        brightest_star_indices = np.argsort(avg_mags)[-n_stars:]
+        brightest_star_indices = np.argsort(avg_mags)[:n_stars] # more negative stars are brighter
 
 
         m = all_mags[:,brightest_star_indices]
@@ -43,24 +43,23 @@ class EnsemblePhotometry(AstroBlockAll):
 
         matrix = np.zeros( (ss+ee,ss+ee) )
 
-
         w1 = np.ones(all_mags.shape,dtype=bool)
         w2 = np.zeros(all_mags.shape,dtype=bool)
         w2[:,brightest_star_indices] = 1
         w3 = np.ones(all_mags.shape,dtype=bool)
         w4 = self.w4(m, all_mag_errs)
 
-        w = w1[brightest_star_indices] * w2[brightest_star_indices] \
-            * w3[brightest_star_indices] * w4[brightest_star_indices]
+        w = w1[:,brightest_star_indices] * w2[:,brightest_star_indices] \
+            * w3[:,brightest_star_indices] * w4[:,brightest_star_indices]
 
         # sum image weights for every star
-        image_weights = np.sum(w,axis=1)
+        image_weights = np.sum(w,axis=0)
         # sum star weights for every image
-        star_weights = np.sum(w,axis=0)
+        star_weights = np.sum(w,axis=1)
         # fetch the indices for matrix diagonal. Both for image and star weights
         diag_indices = np.diag_indices(ss+ee)
-        diag_image_weight_indices = (diag_indices[0][:ee],diag_indices[1][:ee])
-        diag_star_weight_indices = (diag_indices[0][ee:],diag_indices[1][ee:])
+        diag_star_weight_indices = (diag_indices[0][:ee],diag_indices[1][:ee])
+        diag_image_weight_indices = (diag_indices[0][ee:],diag_indices[1][ee:])
 
         # populate matrix diagonals with weight sums
         matrix[diag_image_weight_indices] = image_weights
@@ -88,10 +87,6 @@ class EnsemblePhotometry(AstroBlockAll):
 
          # ------------------ FILL bVec ------------------
         bvec = np.zeros( (ss+ee,1) )
-
-        # calculate the magnitude sum along image and star dimensions
-        image_m_sum = np.sum(m,axis=0)
-        star_m_sum = np.sum(m,axis=1)
 
         # TODO: this could be sped up if sums are performed first
         # populate the first ee rows with image_weight * stellar_mag for that image
@@ -128,22 +123,22 @@ class EnsemblePhotometry(AstroBlockAll):
 
         # stellar magnitudes - corrected with correction factors
         # em is a vector here, and m is 2D. numpy just does broadcasting magic
-        M = all_mags + em
+        M = all_mags - em
 
         # calculate the stellar mean magnitude from as a weighted average using w4
         mean_mags = np.sum(M * w4, axis=0) /  np.sum(w4, axis=0)
         # however, for the brightest stars we just replace them from the solution
-        mean_mags[brightest_star_indices] = m0
+        mean_mags[brightest_star_indices] = m0[:,0]
 
 
         # calculate error of magnitude correction factors
         # again, python broadcasting magic...
-        weighted_sq_residual = (all_mags - em.reshape((ee,1)) - mean_mags.reshape((1,None)))**2 * w4
+        weighted_sq_residual = (M - mean_mags)**2 * w4
 
 
         # calculate error of image correction
         numerator = ss * np.sum(weighted_sq_residual, axis=1)
-        denominator = (ss - 1) * image_weights
+        denominator = (ss - 1) * star_weights
 
         sigma2_em = numerator / denominator
 
@@ -154,13 +149,10 @@ class EnsemblePhotometry(AstroBlockAll):
         sigma2_m0 = numerator / denominator
 
 
-
-
-
         # rename these to be more explicit
         corrected_magnitudes = M # [n_images, n_stars]
         image_correction_factors = em # [n_images,]
-        image_correction_error = sigma2_em # [n_images ]
+        image_correction_error = sigma2_em # [n_images,]
         mean_stellar_magnitude = mean_mags # [n_stars,]
         mean_stellar_mag_error = sigma2_m0 # [n_stars,]
 
